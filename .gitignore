@@ -1,0 +1,9 @@
+.direnv
+.pre-commit-config.yaml
+result
+result-*
+__pycache__/
+*.egg-info/
+build/
+.mypy_cache/
+.pytest_cache/

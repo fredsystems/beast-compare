@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "beast-compare"
+version = "0.1.0"
+description = "Record and compare ADS-B receivers from their Beast outputs"
+requires-python = ">=3.13"
+dependencies = ["pyyaml", "zstandard"]
+
+[project.scripts]
+beast-compare = "beast_compare.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+beast_compare = ["py.typed"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
