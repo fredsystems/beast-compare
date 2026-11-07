@@ -89,7 +89,8 @@ How it works:
    a known aircraft is placed on its track, so a receiver is credited at the
    range it heard an aircraft from even for short replies.
 4. Each receiver is scored only over the minutes it was valid: connected,
-   aligned, not dropping samples, and not at the end of its gain range.
+   aligned, not dropping samples, and not overloaded (judged from readsb's
+   noise floor and strong-message share, not from its gain).
 5. Every rate carries a 95 % interval from resampling aircraft visits.
 
 Long runs are processed an hour at a time (`--window-minutes`), so memory

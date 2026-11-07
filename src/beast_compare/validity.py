@@ -8,8 +8,17 @@ receiver when it was:
 - unaligned: more than ``unaligned_share`` of its frames that minute have
   no reference time (a decoder restart, or no anchors);
 - dropping samples (readsb) or losing buffers (airspy_adsb);
-- at the bottom of its gain range, which on 2026-11-07 meant a clipping
-  Pro Stick Plus, or at the top.
+- overloaded (readsb only): a noise floor above ``max_noise_dbfs``, or
+  more than ``max_strong_share`` of its messages above -3 dBFS.
+
+Overload is judged from these direct signs of clipping, not from the gain.
+A receiver at the bottom of its gain range is not necessarily overloaded:
+on 2026-11-07 the Pro Stick Plus sat at 0 dB with a -31 dBFS noise floor
+and 2.7 % strong messages, and a 10 dB attenuator, which let its gain rise
+to 3.7 dB, cost it 6.5 % of its messages. The same stick at 36.4 dB
+earlier that day, clipping, had a -2 dBFS noise floor. airspy_adsb reports
+neither a noise floor in dBFS nor a strong-message count, so the Airspy is
+judged on its connection, alignment and lost buffers alone.
 
 Stats are polled once a minute and describe the minute before the poll, so
 each poll is assigned to the minute holding its midpoint. A minute with no
@@ -34,10 +43,8 @@ MINUTE_NS = 60 * 10**9
 @dataclass(frozen=True, slots=True)
 class ValiditySettings:
     unaligned_share: float = 0.1
-    readsb_gain_floor_db: float = 0.0
-    readsb_gain_ceiling_db: float = 49.6
-    airspy_gain_floor: float = 0.0
-    airspy_gain_ceiling: float = 21.0
+    max_noise_dbfs: float = -20.0
+    max_strong_share: float = 0.1
 
 
 def _jsonl(path: Path) -> list[dict[str, Any]]:
@@ -87,23 +94,18 @@ def disconnected_spans(
 def _stats_flags(stats: dict[str, Any], settings: ValiditySettings) -> dict[str, bool]:
     if "gain_db" in stats:  # readsb
         local = stats.get("last1min", {}).get("local", {})
-        gain = float(stats["gain_db"])
         dropped = (local.get("samples_dropped", 0) or 0) + (
             local.get("samples_lost", 0) or 0
         ) > 0
-        return {
-            "dropped": dropped,
-            "gain_floor": gain <= settings.readsb_gain_floor_db,
-            "gain_ceiling": gain >= settings.readsb_gain_ceiling_db,
-        }
+        noise = local.get("noise")
+        accepted = sum(local.get("accepted", []) or [])
+        strong = local.get("strong_signals", 0) or 0
+        noisy = noise is not None and float(noise) > settings.max_noise_dbfs
+        hot = accepted > 0 and strong / accepted > settings.max_strong_share
+        return {"dropped": dropped, "overloaded": noisy or hot}
     if "lost_buffers" in stats:  # airspy_adsb
-        gain = float(stats.get("gain", settings.airspy_gain_floor + 1))
-        return {
-            "dropped": int(stats["lost_buffers"]) > 0,
-            "gain_floor": gain <= settings.airspy_gain_floor,
-            "gain_ceiling": gain >= settings.airspy_gain_ceiling,
-        }
-    return {"dropped": False, "gain_floor": False, "gain_ceiling": False}
+        return {"dropped": int(stats["lost_buffers"]) > 0, "overloaded": False}
+    return {"dropped": False, "overloaded": False}
 
 
 def stats_by_minute(
@@ -127,14 +129,13 @@ def stats_by_minute(
             "receiver": pl.Enum(receivers),
             "minute_ns": pl.Int64(),
             "dropped": pl.Boolean(),
-            "gain_floor": pl.Boolean(),
-            "gain_ceiling": pl.Boolean(),
+            "overloaded": pl.Boolean(),
         }
     )
     return (
         pl.DataFrame(rows, schema=schema)
         .group_by("receiver", "minute_ns")
-        .agg(pl.col("dropped", "gain_floor", "gain_ceiling").any())
+        .agg(pl.col("dropped", "overloaded").any())
     )
 
 
@@ -218,13 +219,11 @@ def validity(
             & pl.col("receiver").is_in(sorted(with_stats)),
         )
         .with_columns(
-            pl.col(
-                "disconnected", "unaligned", "dropped", "gain_floor", "gain_ceiling"
-            ).fill_null(False)
+            pl.col("disconnected", "unaligned", "dropped", "overloaded").fill_null(
+                False
+            )
         )
     )
     return table.with_columns(
-        valid=~pl.any_horizontal(
-            "disconnected", "unaligned", "dropped", "gain_floor", "gain_ceiling"
-        )
+        valid=~pl.any_horizontal("disconnected", "unaligned", "dropped", "overloaded")
     ).sort("receiver", "minute_ns")

@@ -20,8 +20,17 @@ def write_jsonl(path: Path, lines: list[dict[str, Any]]) -> None:
     path.write_text("".join(json.dumps(line) + "\n" for line in lines))
 
 
-def readsb(gain_db: float, dropped: int = 0) -> dict[str, Any]:
-    return {"gain_db": gain_db, "last1min": {"local": {"samples_dropped": dropped}}}
+def readsb(
+    noise: float = -31.0, strong: int = 30, gain_db: float = 0.0
+) -> dict[str, Any]:
+    """readsb stats for a minute with 1,000 accepted messages."""
+    local = {
+        "samples_dropped": 0,
+        "noise": noise,
+        "accepted": [900, 100],
+        "strong_signals": strong,
+    }
+    return {"gain_db": gain_db, "last1min": {"local": local}}
 
 
 def airspy(gain: int, lost: int = 0) -> dict[str, Any]:
@@ -66,13 +75,16 @@ def test_validity(tmp_path: Path) -> None:
             for n in range(6)
         ],
     )
+    # rtl sits at 0 dB throughout, which alone is fine. It is overloaded in
+    # minute 4 (noise floor) and minute 5 (strong messages, 15 %).
+    rtl_stats = {4: readsb(noise=-2.0), 5: readsb(strong=150)}
     write_jsonl(
         tmp_path / "rtl" / "stats.jsonl",
         [
-            {"time_ns": minute(n + 1), "stats": readsb(0.0 if n == 4 else 12.5)}
-            for n in range(5)
+            {"time_ns": minute(n + 1), "stats": rtl_stats.get(n, readsb())}
+            for n in range(6)
         ]
-        + [{"time_ns": minute(6), "stats": None, "error": "refused"}],
+        + [{"time_ns": minute(7), "stats": None, "error": "refused"}],
     )
     # rtl's frames in minute 2 are mostly unaligned.
     rows = [Row("rtl", minute(2.1 + i / 100), 0, i) for i in range(10)]
@@ -80,17 +92,19 @@ def test_validity(tmp_path: Path) -> None:
         t_ref=pl.Series([1.0] + [None] * 9, dtype=pl.Float64)
     )
 
-    table = validity(tmp_path, aligned, RECEIVERS, minute(0), minute(6))
+    table = validity(tmp_path, aligned, RECEIVERS, minute(0), minute(7))
     invalid = {
         (r, (m - BASE_NS) // MINUTE_NS)
         for r, m, valid in table.select("receiver", "minute_ns", "valid").iter_rows()
         if not valid
     }
-    assert invalid == {("airspy", 1), ("rtl", 2), ("rtl", 3), ("rtl", 4)}
+    assert invalid == {("airspy", 1), ("rtl", 2), ("rtl", 3), ("rtl", 4), ("rtl", 5)}
 
     rtl = table.filter(pl.col("receiver") == "rtl")
-    reasons = rtl.select("disconnected", "unaligned", "gain_floor").rows()
+    reasons = rtl.select("disconnected", "unaligned", "overloaded").rows()
+    assert reasons[0] == (False, False, False)  # 0 dB, healthy: valid
     assert reasons[2] == (False, True, False)
     assert reasons[3] == (True, False, False)
     assert reasons[4] == (False, False, True)
-    assert rtl["stats_missing"].to_list() == [False] * 5 + [True]
+    assert reasons[5] == (False, False, True)
+    assert rtl["stats_missing"].to_list() == [False] * 6 + [True]

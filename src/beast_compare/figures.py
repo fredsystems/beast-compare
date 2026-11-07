@@ -227,14 +227,13 @@ def lags(events: pl.DataFrame, receivers: list[str], column: str, title: str) ->
     return _html(figure)
 
 
-REASONS = ("disconnected", "unaligned", "dropped", "gain_floor", "gain_ceiling")
+REASONS = ("disconnected", "unaligned", "dropped", "overloaded")
 REASON_COLOURS = {
     "valid": "#2ca02c",
     "disconnected": "#7f7f7f",
     "unaligned": "#9467bd",
     "dropped": "#ff7f0e",
-    "gain_floor": "#d62728",
-    "gain_ceiling": "#e377c2",
+    "overloaded": "#d62728",
 }
 
 
