@@ -56,4 +56,5 @@ def test_add_visits_splits_on_long_gaps() -> None:
     assert visits[0] == visits[1]
     assert visits[3] == visits[4] != visits[0]
     assert visits[2] not in (visits[0], visits[3])
-    assert visits[5] is None
+    # No address: a visit of its own.
+    assert visits[5] not in (visits[0], visits[2], visits[3])

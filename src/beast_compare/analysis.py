@@ -6,8 +6,12 @@ receivers is hundreds of millions of frames), so the frame-level stages
 window is loaded with ``overlap_s`` extra on both sides, so that clustering,
 CPR pairing and track interpolation near its edges see their neighbours,
 and keeps only the transmissions whose earliest arrival falls inside it.
-The per-transmission tables are small and are concatenated, and visits are
-then numbered over the whole run.
+Windows are whole minutes, so a minute's validity is judged on all of it.
+
+What is kept across windows is per transmission, not per frame: the
+analysis table (about 70 bytes a transmission, so a few GB for 48 hours
+of four receivers) and each anchor's timing residual. Memory therefore
+grows with the run, but at a small fraction of the frame-level rate.
 """
 
 from __future__ import annotations
@@ -26,7 +30,7 @@ from beast_compare.ingest import FileReport, load_run
 from beast_compare.manifest import read_manifest
 from beast_compare.positions import attribute, decode_positions
 from beast_compare.table import add_visits, build_table
-from beast_compare.validity import validity
+from beast_compare.validity import MINUTE_NS, validity
 
 HOUR_S = 3600.0
 
@@ -64,8 +68,21 @@ def run_span(run_dir: Path) -> tuple[int, int]:
 
 
 def windows(start_ns: int, end_ns: int, window_s: float) -> list[tuple[int, int]]:
-    step = int(window_s * 1e9)
-    return [(s, min(s + step, end_ns)) for s in range(start_ns, end_ns, step)]
+    """[start, end) cut into windows of whole minutes: every edge but the
+    first and last is on a minute boundary."""
+    if end_ns <= start_ns:
+        raise ValueError("the analysis window ends before it starts")
+    minutes = round(window_s / 60)
+    if minutes < 1:
+        raise ValueError("windows must be at least one minute")
+    step = minutes * MINUTE_NS
+    edges = [start_ns]
+    edge = start_ns // MINUTE_NS * MINUTE_NS + step
+    while edge < end_ns:
+        edges.append(edge)
+        edge += step
+    edges.append(end_ns)
+    return list(zip(edges, edges[1:], strict=False))
 
 
 def analyse(
@@ -112,7 +129,8 @@ def analyse(
             )
         )
         minutes.append(window_validity)
-        anchors.append(aligned.anchors)
+        # Only what the timing summary needs.
+        anchors.append(aligned.anchors.select("receiver", "residual_us"))
         frame_counts.append(
             inside.group_by("receiver").agg(
                 frames=pl.len(), unaligned=pl.col("t_ref").is_null().sum()

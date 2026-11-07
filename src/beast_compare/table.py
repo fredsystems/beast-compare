@@ -16,7 +16,8 @@ Columns, besides the transmission's own (``tx``, ``ref_segment``, ``t_ref``,
 - ``visit`` (added by :func:`add_visits` over the whole run): the aircraft
   visit, a continuous presence of one address in the reference set with no
   gap longer than ``visit_gap_s``. Visits are the unit the confidence
-  intervals resample.
+  intervals resample. A transmission without an address (rare: formats
+  with no address field) is a visit of its own, so it is still scored.
 - ``position``: whether the transmission is a decoded airborne position.
 - ``df_group``: index into ``DF_GROUPS``.
 """
@@ -100,4 +101,9 @@ def add_visits(table: pl.DataFrame, visit_gap_s: float = VISIT_GAP_S) -> pl.Data
     visits = addressed.select(
         "_row", visit=starts.cast(pl.UInt32).cum_sum().cast(pl.UInt32) - 1
     )
-    return ordered.join(visits, on="_row", how="left").sort("_row").drop("_row")
+    joined = ordered.join(visits, on="_row", how="left").sort("_row")
+    first_alone = len(visits)
+    alone = pl.col("visit").is_null().cast(pl.UInt32).cum_sum() - 1 + first_alone
+    return joined.with_columns(
+        visit=pl.coalesce(pl.col("visit"), alone).cast(pl.UInt32)
+    ).drop("_row")

@@ -190,10 +190,14 @@ def validity(
         for minute in minutes
         if start < minute + MINUTE_NS and end > minute
     ]
-    disconnected = pl.DataFrame(
-        {"receiver": [d[0] for d in down], "minute_ns": [d[1] for d in down]},
-        schema={"receiver": pl.Enum(receivers), "minute_ns": pl.Int64},
-    ).with_columns(disconnected=pl.lit(True))
+    disconnected = (
+        pl.DataFrame(
+            {"receiver": [d[0] for d in down], "minute_ns": [d[1] for d in down]},
+            schema={"receiver": pl.Enum(receivers), "minute_ns": pl.Int64},
+        )
+        .unique()
+        .with_columns(disconnected=pl.lit(True))
+    )
 
     unaligned = (
         aligned.with_columns(minute_ns=pl.col("arrival_ns") // MINUTE_NS * MINUTE_NS)

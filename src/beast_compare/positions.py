@@ -310,7 +310,13 @@ def attribute(
         )
         return result
 
-    lat, lon, alt = blend("lat_pos"), blend("lon_pos"), blend("alt_pos")
+    # Longitude takes the short way round, so that a track crossing the
+    # antimeridian does not interpolate through 0 degrees.
+    lon_before, lon_after = side(before, "lon_pos"), side(after, "lon_pos")
+    unwrapped = lon_before + (np.mod(lon_after - lon_before + 180, 360) - 180)
+    after = after.with_columns(lon_pos=pl.Series(unwrapped))
+    lat, alt = blend("lat_pos"), blend("alt_pos")
+    lon = np.mod(blend("lon_pos") + 180, 360) - 180
     placed = ~np.isnan(lat)
     range_nm = np.full(len(t), np.nan)
     bearing = np.full(len(t), np.nan)

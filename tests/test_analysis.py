@@ -31,7 +31,12 @@ def run_dir(tmp_path: Path) -> Path:
 
 
 def test_windows() -> None:
-    assert windows(0, 25, 10e-9) == [(0, 10), (10, 20), (20, 25)]
+    minute = 60 * 10**9
+    assert windows(0, 150 * 10**9, 60) == [
+        (0, minute),
+        (minute, 2 * minute),
+        (2 * minute, 150 * 10**9),
+    ]
 
 
 def heard_counts(table: pl.DataFrame) -> dict[str, int]:
@@ -41,7 +46,7 @@ def heard_counts(table: pl.DataFrame) -> dict[str, int]:
 def test_windowing_does_not_change_the_result(run_dir: Path) -> None:
     whole = analyse(run_dir, SITE, START, END)
     pieces = analyse(
-        run_dir, SITE, START, END, settings=AnalysisSettings(window_s=20, overlap_s=5)
+        run_dir, SITE, START, END, settings=AnalysisSettings(window_s=60, overlap_s=5)
     )
     assert len(pieces.table) == pytest.approx(len(whole.table), rel=1e-3)
     for receiver, count in heard_counts(whole.table).items():

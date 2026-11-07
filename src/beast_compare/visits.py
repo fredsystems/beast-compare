@@ -69,8 +69,8 @@ def _events(
         first_last = own.group_by("visit").agg(
             first=pl.col("wall_s").first(),
             last=pl.col("wall_s").last(),
-            first_range=pl.col("range_nm").drop_nulls().first(),
-            last_range=pl.col("range_nm").drop_nulls().last(),
+            first_range=pl.col("range_nm").first(),
+            last_range=pl.col("range_nm").last(),
         )
         first_last_pos = positions.group_by("visit").agg(
             first_position=pl.col("wall_s").first(),
@@ -207,11 +207,12 @@ def continuity(
     visits = _interior_visits(table, settings).filter(
         pl.col("end") - pl.col("start") >= settings.min_duration_s
     )
-    rows = table.join(visits.select("visit", "start"), on="visit").filter(
-        pl.col("position")
-    )
+    rows = table.join(visits.select("visit", "start"), on="visit")
+    # Validity over every transmission of the visit, not only its positions:
+    # an outage during which only short replies were heard still counts.
     every = pl.all_horizontal([pl.col(valid(r)) for r in receivers])
     usable = rows.group_by("visit").agg(ok=every.all()).filter(pl.col("ok"))
+    rows = rows.filter(pl.col("position"))
     rows = rows.join(usable.select("visit"), on="visit").with_columns(
         bin=((pl.col("wall_s") - pl.col("start")) // settings.bin_s).cast(pl.Int64)
     )

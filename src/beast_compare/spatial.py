@@ -79,7 +79,10 @@ def polar_difference(
 
 
 def range_outline(
-    table: pl.DataFrame, receivers: list[str], quantile: float = 0.99
+    table: pl.DataFrame,
+    receivers: list[str],
+    quantile: float = 0.99,
+    min_n: int = 30,
 ) -> pl.DataFrame:
     """Per receiver and 10 degree sector: the ``quantile`` range of the
     transmissions it decoded (a high quantile, not the maximum, so that one
@@ -90,7 +93,8 @@ def range_outline(
     parts = [
         placed.filter(pl.col(valid(r)) & pl.col(heard(r)))
         .group_by("bearing_lo")
-        .agg(range_nm=pl.col("range_nm").quantile(quantile))
+        .agg(n=pl.len(), range_nm=pl.col("range_nm").quantile(quantile))
+        .filter(pl.col("n") >= min_n)
         .with_columns(receiver=pl.lit(r))
         for r in receivers
     ]

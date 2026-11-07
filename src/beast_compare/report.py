@@ -124,7 +124,9 @@ def write_report(
         "polar_difference": polar_difference(table, receivers, reference),
         "range_outline": range_outline(table, receivers),
         "altitude_by_range": altitude_by_range(table, receivers),
-        "gain": gain_series(analysis.run_dir, receivers),
+        "gain": gain_series(analysis.run_dir, receivers).filter(
+            pl.col("time_ns").is_between(analysis.start_ns, analysis.end_ns)
+        ),
         "validity": analysis.validity,
     }
     for dimension in DIMENSIONS:

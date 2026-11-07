@@ -104,9 +104,13 @@ class Resampler:
 
 
 def _visit_counts(rows: pl.DataFrame, receivers: list[str]) -> pl.DataFrame:
-    """Per visit: n transmissions and, per receiver, k decoded."""
-    return rows.group_by("visit").agg(
-        pl.len().alias("n"), *[pl.col(heard(r)).sum().alias(r) for r in receivers]
+    """Per visit: n transmissions and, per receiver, k decoded. Sorted by
+    visit, so that seeded resampling weights land on the same visits on
+    every run (group_by output order is arbitrary)."""
+    return (
+        rows.group_by("visit")
+        .agg(pl.len().alias("n"), *[pl.col(heard(r)).sum().alias(r) for r in receivers])
+        .sort("visit")
     )
 
 
@@ -134,7 +138,7 @@ def rates_by(
     base = base.with_columns(band=band).filter(pl.col("band").is_not_null())
     for receiver in receivers:
         own = base.filter(pl.col(valid(receiver)))
-        for (index,), group in own.group_by("band"):
+        for (index,), group in own.sort("band").group_by("band", maintain_order=True):
             counts = _visit_counts(group, [receiver])
             n, k = _arrays(counts, receiver)
             interval = ratio(n, k, resampler.weights(len(counts)))
@@ -191,7 +195,7 @@ def wins_by(
         .with_columns(band=dimension.band())
         .filter(pl.col("band").is_not_null())
     )
-    for (index,), group in base.group_by("band"):
+    for (index,), group in base.sort("band").group_by("band", maintain_order=True):
         counts = _visit_counts(group, receivers)
         weights = resampler.weights(len(counts))
         n = counts["n"].to_numpy().astype(np.float64)
@@ -263,7 +267,9 @@ def sensitivity(
                 pl.col(valid(receiver)) & pl.col(valid(by)) & pl.col(heard(by))
             ).with_columns(level=dbfs(signal(by)).floor())
             curve: list[tuple[float, float, int]] = []
-            for (level,), group in rows.group_by("level"):
+            for (level,), group in rows.sort("level").group_by(
+                "level", maintain_order=True
+            ):
                 counts = _visit_counts(group, [receiver])
                 n, k = _arrays(counts, receiver)
                 interval = ratio(n, k, resampler.weights(len(counts)))
@@ -310,11 +316,11 @@ def _crossing(curve: list[tuple[float, float, int]], target: float) -> float | N
     """First level, weak to strong, where the rate reaches ``target``,
     interpolated between bins; bins with too few transmissions skipped."""
     points = sorted((lvl, rate) for lvl, rate, n in curve if n >= MIN_BIN_TRANSMISSIONS)
+    if points and points[0][1] >= target:
+        return points[0][0]
     for (l0, r0), (l1, r1) in zip(points, points[1:], strict=False):
         if r0 < target <= r1:
             return l0 + (target - r0) / (r1 - r0) * (l1 - l0)
-    if points and points[0][1] >= target:
-        return points[0][0]
     return None
 
 

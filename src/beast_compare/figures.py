@@ -59,6 +59,19 @@ def rates(rates_frame: pl.DataFrame, receivers: list[str], title: str) -> str:
     return _html(figure)
 
 
+def _cell_labels(rows: pl.DataFrame) -> list[list[object]]:
+    """Hover text per polar cell: its range and bearing band, and its n."""
+    return [
+        [f"{r}-{r + 10} nm, {b}-{b + 10} deg", n]
+        for r, b, n in zip(
+            rows["range_lo"].to_list(),
+            rows["bearing_lo"].to_list(),
+            rows["n"].to_list(),
+            strict=True,
+        )
+    ]
+
+
 def polar_rates(cells: pl.DataFrame, receiver: str, title: str) -> str:
     rows = cells.filter(pl.col("receiver") == receiver)
     figure = go.Figure(
@@ -74,9 +87,9 @@ def polar_rates(cells: pl.DataFrame, receiver: str, title: str) -> str:
                 "cmax": 1,
                 "colorbar": {"title": "rate", "tickformat": ".0%"},
             },
-            customdata=rows["n"].to_list(),
-            hovertemplate="%{base}-%{r} nm, %{theta} deg: %{marker.color:.1%}"
-            " (n=%{customdata})<extra></extra>",
+            customdata=_cell_labels(rows),
+            hovertemplate="%{customdata[0]}: %{marker.color:.1%}"
+            " (n=%{customdata[1]})<extra></extra>",
         )
     )
     figure.update_layout(
@@ -101,9 +114,9 @@ def polar_difference(cells: pl.DataFrame, receiver: str, reference: str) -> str:
                 "cmid": 0,
                 "colorbar": {"title": "difference", "tickformat": "+.0%"},
             },
-            customdata=rows["n"].to_list(),
-            hovertemplate="%{base}-%{r} nm, %{theta} deg: %{marker.color:+.1%}"
-            " (n=%{customdata})<extra></extra>",
+            customdata=_cell_labels(rows),
+            hovertemplate="%{customdata[0]}: %{marker.color:+.1%}"
+            " (n=%{customdata[1]})<extra></extra>",
         )
     )
     figure.update_layout(

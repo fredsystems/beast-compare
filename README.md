@@ -93,8 +93,10 @@ How it works:
    noise floor and strong-message share, not from its gain).
 5. Every rate carries a 95 % interval from resampling aircraft visits.
 
-Long runs are processed an hour at a time (`--window-minutes`), so memory
-stays bounded by the window rather than the run.
+Long runs are processed an hour at a time (`--window-minutes`): frames,
+the bulk of the data, are only ever held for one window. What is kept for
+the whole run is per transmission, about 70 bytes each, so a 48-hour run
+of four receivers needs a few GB.
 
 ## Development
 

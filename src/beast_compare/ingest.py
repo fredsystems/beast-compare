@@ -51,7 +51,8 @@ _SIGNAL_AT = _COUNTER_AT + 6
 _MESSAGE_AT = _SIGNAL_AT + 1
 
 # Formats whose address is overlaid on the parity (address/parity field).
-_PARITY_ADDRESS_DFS = (0, 4, 5, 16, 20, 21)
+# Comm-D (24) is always 112 bits with an address/parity field.
+_PARITY_ADDRESS_DFS = (0, 4, 5, 16, 20, 21, 24)
 # Formats carrying the address in clear in bytes 1-3.
 _CLEAR_ADDRESS_DFS = (11, 17, 18)
 
