@@ -6,6 +6,7 @@
   polars,
   pyyaml,
   zstandard,
+  pymodes,
   pytestCheckHook,
 }:
 
@@ -32,7 +33,11 @@ buildPythonApplication {
     zstandard
   ];
 
-  nativeCheckInputs = [ pytestCheckHook ];
+  # pyModeS is the reference the vectorised decoders are tested against.
+  nativeCheckInputs = [
+    pymodes
+    pytestCheckHook
+  ];
 
   pythonImportsCheck = [ "beast_compare" ];
 

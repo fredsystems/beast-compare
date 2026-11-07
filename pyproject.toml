@@ -23,6 +23,11 @@ strict = true
 python_version = "3.13"
 mypy_path = "src"
 
+# pyModeS ships no type information; it is only used by the tests.
+[[tool.mypy.overrides]]
+module = ["pyModeS", "pyModeS.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
