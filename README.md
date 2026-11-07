@@ -61,6 +61,40 @@ A `.bcr.zst` file is a sequence of zstd frames, one per flush (every
 `[u64 arrival_unix_ns][u8 len][type byte + unescaped Beast body]`,
 big-endian. A crash loses at most the last flush interval.
 
+## Comparing
+
+```sh
+beast-compare compare /path/to/run --lat 35.0 --lon -106.6 --alt-m 1600 \
+    [--start 2026-11-08T00:00] [--end 2026-11-10T00:00] [--reference airspy]
+```
+
+The antenna position is given here rather than recorded, so that it never
+ends up in a run directory or a configuration file. The first configured
+receiver is the reference clock unless `--reference` names another.
+
+The report directory (by default `<run>/reports/<start>_<end>/`) holds
+`report.html`, a single self-contained page, and every table behind it as
+parquet, including `transmissions.parquet`: one row per transmission, with
+who decoded it, at what signal, and where the aircraft was.
+
+How it works:
+
+1. Every receiver's counter is mapped onto the reference receiver's from
+   long messages both decoded once (robustly: identical content transmitted
+   twice pairs up wrongly and is rejected). Aligned timestamps agree to a
+   fraction of a microsecond.
+2. Frames with the same bytes within 2 us on that clock are one
+   transmission. The union of all transmissions is the reference set.
+3. Airborne positions are decoded from CPR pairs, and every transmission of
+   a known aircraft is placed on its track, so a receiver is credited at the
+   range it heard an aircraft from even for short replies.
+4. Each receiver is scored only over the minutes it was valid: connected,
+   aligned, not dropping samples, and not at the end of its gain range.
+5. Every rate carries a 95 % interval from resampling aircraft visits.
+
+Long runs are processed an hour at a time (`--window-minutes`), so memory
+stays bounded by the window rather than the run.
+
 ## Development
 
 ```sh

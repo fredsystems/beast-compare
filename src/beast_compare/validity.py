@@ -138,6 +138,30 @@ def stats_by_minute(
     )
 
 
+def gain_series(run_dir: Path, receivers: list[str]) -> pl.DataFrame:
+    """Every stats poll's gain: receiver, time_ns, gain (dB for readsb,
+    the 0-21 linearity step for airspy_adsb)."""
+    rows: list[dict[str, Any]] = []
+    for receiver in receivers:
+        for line in _jsonl(run_dir / receiver / STATS_NAME):
+            stats = line.get("stats")
+            if stats is None:
+                continue
+            gain = stats.get("gain_db", stats.get("gain"))
+            if gain is not None:
+                rows.append(
+                    {
+                        "receiver": receiver,
+                        "time_ns": int(line["time_ns"]),
+                        "gain": float(gain),
+                    }
+                )
+    return pl.DataFrame(
+        rows,
+        schema={"receiver": pl.String, "time_ns": pl.Int64, "gain": pl.Float64},
+    ).sort("receiver", "time_ns")
+
+
 def validity(
     run_dir: Path,
     aligned: pl.DataFrame,

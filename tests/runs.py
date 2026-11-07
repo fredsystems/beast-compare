@@ -1,5 +1,6 @@
 """Build recorded runs on disk for tests."""
 
+import json
 from pathlib import Path
 
 from conftest import fixture_stream
@@ -54,3 +55,15 @@ def fixture_records(name: str, step_ns: int | None = None) -> list[Record]:
             arrival = BASE_NS + (decoded_ns // 20_000_000 + 1) * 20_000_000
         records.append(Record(arrival, frame))
     return records
+
+
+def connect_all(config: RecorderConfig, at_ns: int) -> None:
+    """Record every receiver as connected from ``at_ns``, as the recorder
+    would have."""
+    lines = [
+        {"time_ns": at_ns, "receiver": r.name, "event": "connected"}
+        for r in config.receivers
+    ]
+    (config.run_dir / "events.jsonl").write_text(
+        "".join(json.dumps(line) + "\n" for line in lines)
+    )

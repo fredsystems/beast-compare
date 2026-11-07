@@ -3,6 +3,7 @@
   buildPythonApplication,
   setuptools,
   numpy,
+  plotly,
   polars,
   pyyaml,
   zstandard,
@@ -28,6 +29,7 @@ buildPythonApplication {
 
   dependencies = [
     numpy
+    plotly
     polars
     pyyaml
     zstandard

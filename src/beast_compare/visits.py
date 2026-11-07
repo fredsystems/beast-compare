@@ -85,6 +85,21 @@ def _events(
     return pl.concat(parts).join(edges, on="visit")
 
 
+def by_receiver(
+    events: pl.DataFrame, receivers: list[str], column: str, valid_column: str
+) -> pl.DataFrame:
+    """One row per visit valid at ``valid_column``, one ``column`` value per
+    receiver (null where it never had one); every receiver has a column even
+    when there are no visits."""
+    wide = events.filter(pl.col(valid_column)).pivot(
+        on="receiver", index="visit", values=column
+    )
+    missing = [r for r in receivers if r not in wide.columns]
+    return wide.with_columns(
+        [pl.lit(None, dtype=pl.Float64).alias(r) for r in missing]
+    ).select("visit", *receivers)
+
+
 def _lead_summary(
     events: pl.DataFrame,
     receivers: list[str],
@@ -93,8 +108,7 @@ def _lead_summary(
     valid_column: str,
     tie_s: float,
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
-    scored = events.filter(pl.col(valid_column))
-    wide = scored.pivot(on="receiver", index="visit", values=column)
+    wide = by_receiver(events, receivers, column, valid_column)
     # Only visits some receiver has a value for (e.g. a position) count.
     wide = wide.filter(pl.any_horizontal([pl.col(r).is_not_null() for r in receivers]))
     sign = -1.0 if later_is_better else 1.0
