@@ -2,6 +2,8 @@
   lib,
   buildPythonApplication,
   setuptools,
+  numpy,
+  polars,
   pyyaml,
   zstandard,
   pytestCheckHook,
@@ -24,6 +26,8 @@ buildPythonApplication {
   build-system = [ setuptools ];
 
   dependencies = [
+    numpy
+    polars
     pyyaml
     zstandard
   ];

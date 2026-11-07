@@ -106,8 +106,7 @@ class RecordReader:
         self.truncated = False
 
     def __iter__(self) -> Iterator[Record]:
-        self.truncated = False
-        data = self._decompress()
+        data, self.truncated = decompress_file(self.path)
         offset = 0
         header_len = RECORD_HEADER.size
         while offset < len(data):
@@ -123,24 +122,29 @@ class RecordReader:
             yield Record(arrival_ns, Frame.decode(data[start:end]))
             offset = end
 
-    def _decompress(self) -> bytes:
-        # Frame by frame, so that a frame cut short is detected: a streaming
-        # reader returns its partial content without any error.
-        chunks: list[bytes] = []
-        decompressor = zstandard.ZstdDecompressor()
-        remaining = self.path.read_bytes()
-        while remaining:
-            frame = decompressor.decompressobj()
-            try:
-                chunks.append(frame.decompress(remaining))
-            except zstandard.ZstdError:
-                self.truncated = True
-                break
-            if not frame.eof:
-                self.truncated = True
-                break
-            remaining = frame.unused_data
-        return b"".join(chunks)
+
+def decompress_file(path: Path) -> tuple[bytes, bool]:
+    """A recording file's records as one buffer, and whether it was cut short.
+
+    Decompressed zstd frame by zstd frame, so that a frame cut short is
+    detected: a streaming reader returns its partial content without error.
+    """
+    chunks: list[bytes] = []
+    decompressor = zstandard.ZstdDecompressor()
+    remaining = path.read_bytes()
+    truncated = False
+    while remaining:
+        frame = decompressor.decompressobj()
+        try:
+            chunks.append(frame.decompress(remaining))
+        except zstandard.ZstdError:
+            truncated = True
+            break
+        if not frame.eof:
+            truncated = True
+            break
+        remaining = frame.unused_data
+    return b"".join(chunks), truncated
 
 
 def recording_files(directory: Path) -> list[Path]:
