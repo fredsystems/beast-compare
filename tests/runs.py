@@ -33,7 +33,24 @@ def make_run(data_dir: Path, receivers: dict[str, list[Record]]) -> RecorderConf
     return config
 
 
-def fixture_records(name: str, step_ns: int = 1_000_000) -> list[Record]:
-    """A capture's frames as records, ``step_ns`` apart from BASE_NS."""
+def fixture_records(name: str, step_ns: int | None = None) -> list[Record]:
+    """A capture's frames as records starting at BASE_NS.
+
+    By default each frame arrives when its own counter says it was decoded,
+    rounded up to the next 20 ms (a recorder read), as in a real recording.
+    With ``step_ns``, frames are instead spaced evenly by index.
+    """
     frames: list[Frame] = BeastParser().feed(fixture_stream(name))
-    return [Record(BASE_NS + i * step_ns, f) for i, f in enumerate(frames)]
+    mode_s = [f for f in frames if f.type_byte != 0x31]
+    first = mode_s[0].timestamp
+    records = []
+    for i, frame in enumerate(frames):
+        if step_ns is not None:
+            arrival = BASE_NS + i * step_ns
+        elif frame.type_byte == 0x31:
+            arrival = BASE_NS
+        else:
+            decoded_ns = (frame.timestamp - first) * 1000 // 12
+            arrival = BASE_NS + (decoded_ns // 20_000_000 + 1) * 20_000_000
+        records.append(Record(arrival, frame))
+    return records

@@ -74,7 +74,8 @@ def test_message_bytes_round_trip(tmp_path: Path) -> None:
 
 
 def test_time_window(tmp_path: Path) -> None:
-    config = make_run(tmp_path, {"airspy": fixture_records("airspy-60s")})
+    records = fixture_records("airspy-60s", step_ns=1_000_000)
+    config = make_run(tmp_path, {"airspy": records})
     start = BASE_NS + 1000 * 1_000_000
     end = BASE_NS + 2000 * 1_000_000
     frames = load_run(config.run_dir, start, end).frames
