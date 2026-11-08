@@ -75,9 +75,10 @@ def test_validity(tmp_path: Path) -> None:
             for n in range(6)
         ],
     )
-    # rtl sits at 0 dB throughout, which alone is fine. It is overloaded in
-    # minute 4 (noise floor) and minute 5 (strong messages, 15 %).
-    rtl_stats = {4: readsb(noise=-2.0), 5: readsb(strong=150)}
+    # rtl sits at 0 dB throughout, which alone is fine. Minute 4 is
+    # overloaded (noise floor). Minute 5 has 34 % strong messages with a
+    # quiet noise floor, as with one aircraft close by at night: valid.
+    rtl_stats = {4: readsb(noise=-2.0), 5: readsb(noise=-33.0, strong=340)}
     write_jsonl(
         tmp_path / "rtl" / "stats.jsonl",
         [
@@ -98,7 +99,7 @@ def test_validity(tmp_path: Path) -> None:
         for r, m, valid in table.select("receiver", "minute_ns", "valid").iter_rows()
         if not valid
     }
-    assert invalid == {("airspy", 1), ("rtl", 2), ("rtl", 3), ("rtl", 4), ("rtl", 5)}
+    assert invalid == {("airspy", 1), ("rtl", 2), ("rtl", 3), ("rtl", 4)}
 
     rtl = table.filter(pl.col("receiver") == "rtl")
     reasons = rtl.select("disconnected", "unaligned", "overloaded").rows()
@@ -106,5 +107,5 @@ def test_validity(tmp_path: Path) -> None:
     assert reasons[2] == (False, True, False)
     assert reasons[3] == (True, False, False)
     assert reasons[4] == (False, False, True)
-    assert reasons[5] == (False, False, True)
+    assert reasons[5] == (False, False, False)
     assert rtl["stats_missing"].to_list() == [False] * 6 + [True]

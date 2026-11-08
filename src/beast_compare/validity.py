@@ -8,17 +8,22 @@ receiver when it was:
 - unaligned: more than ``unaligned_share`` of its frames that minute have
   no reference time (a decoder restart, or no anchors);
 - dropping samples (readsb) or losing buffers (airspy_adsb);
-- overloaded (readsb only): a noise floor above ``max_noise_dbfs``, or
-  more than ``max_strong_share`` of its messages above -3 dBFS.
+- overloaded (readsb only): a noise floor above ``max_noise_dbfs``.
 
-Overload is judged from these direct signs of clipping, not from the gain.
-A receiver at the bottom of its gain range is not necessarily overloaded:
-on 2026-11-07 the Pro Stick Plus sat at 0 dB with a -31 dBFS noise floor
-and 2.7 % strong messages, and a 10 dB attenuator, which let its gain rise
-to 3.7 dB, cost it 6.5 % of its messages. The same stick at 36.4 dB
-earlier that day, clipping, had a -2 dBFS noise floor. airspy_adsb reports
-neither a noise floor in dBFS nor a strong-message count, so the Airspy is
-judged on its connection, alignment and lost buffers alone.
+Overload is judged from the noise floor, the direct sign of clipping, and
+not from the gain: a receiver at the bottom of its gain range is not
+necessarily overloaded. On 2026-11-07 the Pro Stick Plus at 0 dB had a
+-31 dBFS noise floor, and a 10 dB attenuator, which let its gain rise to
+3.7 dB, cost it 6.5 % of its messages. Clipping, the same stick read -2
+dBFS at 36.4 dB, -6.3 at 20.7 dB, -12.9 at 14.4 dB and -17 at 7.7 dB.
+
+Nor is it judged from the share of strong messages. That share rises with
+traffic geometry, not overload: overnight, with few aircraft and one of
+them close by, it reached 34 % while the noise floor stayed at -33 dBFS,
+and since only readsb reports it, using it removed nearby traffic from
+the RTL-SDRs' scores alone. airspy_adsb reports no noise floor in dBFS
+either, so the Airspy is judged on its connection, alignment and lost
+buffers.
 
 Stats are polled once a minute and describe the minute before the poll, so
 each poll is assigned to the minute holding its midpoint. A minute with no
@@ -44,7 +49,6 @@ MINUTE_NS = 60 * 10**9
 class ValiditySettings:
     unaligned_share: float = 0.1
     max_noise_dbfs: float = -20.0
-    max_strong_share: float = 0.1
 
 
 def _jsonl(path: Path) -> list[dict[str, Any]]:
@@ -98,11 +102,8 @@ def _stats_flags(stats: dict[str, Any], settings: ValiditySettings) -> dict[str,
             local.get("samples_lost", 0) or 0
         ) > 0
         noise = local.get("noise")
-        accepted = sum(local.get("accepted", []) or [])
-        strong = local.get("strong_signals", 0) or 0
         noisy = noise is not None and float(noise) > settings.max_noise_dbfs
-        hot = accepted > 0 and strong / accepted > settings.max_strong_share
-        return {"dropped": dropped, "overloaded": noisy or hot}
+        return {"dropped": dropped, "overloaded": noisy}
     if "lost_buffers" in stats:  # airspy_adsb
         return {"dropped": int(stats["lost_buffers"]) > 0, "overloaded": False}
     return {"dropped": False, "overloaded": False}

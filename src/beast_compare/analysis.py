@@ -9,8 +9,8 @@ and keeps only the transmissions whose earliest arrival falls inside it.
 Windows are whole minutes, so a minute's validity is judged on all of it.
 
 What is kept across windows is per transmission, not per frame: the
-analysis table (about 70 bytes a transmission, so a few GB for 48 hours
-of four receivers) and each anchor's timing residual. Memory therefore
+analysis table (about 130 bytes a transmission for two receivers) and
+each anchor's timing residual. Memory therefore
 grows with the run, but at a small fraction of the frame-level rate.
 """
 

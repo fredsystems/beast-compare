@@ -199,8 +199,8 @@ def _sections(
             figures.health(outputs["validity"], outputs["gain"], receivers)
             + "<p class='note'>A minute is invalid for a receiver when it was"
             " disconnected, could not be aligned, dropped samples, or was"
-            " overloaded (readsb: noise floor above -20 dBFS, or over 10 % of"
-            " messages above -3 dBFS). A receiver is scored only over its"
+            " overloaded (readsb: noise floor above -20 dBFS). A receiver is"
+            " scored only over its"
             " valid minutes; comparisons use minutes where all were valid.</p>",
         ),
         Section(
