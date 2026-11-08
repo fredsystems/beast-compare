@@ -90,13 +90,15 @@ How it works:
    range it heard an aircraft from even for short replies.
 4. Each receiver is scored only over the minutes it was valid: connected,
    aligned, not dropping samples, and not overloaded (judged from readsb's
-   noise floor and strong-message share, not from its gain).
+   noise floor, not from its gain).
 5. Every rate carries a 95 % interval from resampling aircraft visits.
 
 Long runs are processed an hour at a time (`--window-minutes`): frames,
 the bulk of the data, are only ever held for one window. What is kept for
-the whole run is per transmission, about 70 bytes each, so a 48-hour run
-of four receivers needs a few GB.
+the whole run is per transmission, about 130 bytes each for two
+receivers. Fourteen hours of two receivers (8.7 million transmissions)
+peaked at 6 GB for the analysis and 11 GB with the report; expect a few
+tens of GB for 48 hours of four.
 
 ## Development
 
