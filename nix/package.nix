@@ -2,8 +2,12 @@
   lib,
   buildPythonApplication,
   setuptools,
+  numpy,
+  plotly,
+  polars,
   pyyaml,
   zstandard,
+  pymodes,
   pytestCheckHook,
 }:
 
@@ -24,11 +28,18 @@ buildPythonApplication {
   build-system = [ setuptools ];
 
   dependencies = [
+    numpy
+    plotly
+    polars
     pyyaml
     zstandard
   ];
 
-  nativeCheckInputs = [ pytestCheckHook ];
+  # pyModeS is the reference the vectorised decoders are tested against.
+  nativeCheckInputs = [
+    pymodes
+    pytestCheckHook
+  ];
 
   pythonImportsCheck = [ "beast_compare" ];
 

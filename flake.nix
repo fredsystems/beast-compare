@@ -40,6 +40,7 @@
           beast-compare.dependencies
           ++ [
             ps.mypy
+            ps.pymodes
             ps.pytest
             ps.types-pyyaml
           ]

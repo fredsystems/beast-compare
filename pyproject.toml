@@ -7,7 +7,7 @@ name = "beast-compare"
 version = "0.1.0"
 description = "Record and compare ADS-B receivers from their Beast outputs"
 requires-python = ">=3.13"
-dependencies = ["pyyaml", "zstandard"]
+dependencies = ["numpy", "plotly", "polars", "pyyaml", "zstandard"]
 
 [project.scripts]
 beast-compare = "beast_compare.cli:main"
@@ -22,6 +22,11 @@ beast_compare = ["py.typed"]
 strict = true
 python_version = "3.13"
 mypy_path = "src"
+
+# Neither ships type information. pyModeS is only used by the tests.
+[[tool.mypy.overrides]]
+module = ["pyModeS", "pyModeS.*", "plotly", "plotly.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
