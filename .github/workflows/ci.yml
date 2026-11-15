@@ -33,3 +33,14 @@ jobs:
       # pre-commit hooks, pytest (the package's check phase) and mypy --strict.
       - name: nix flake check
         run: nix flake check -L
+
+      - name: Check links (online)
+        # `nix flake check` runs the pre-commit hooks in the Nix sandbox,
+        # which has no network, so its lychee hook only checks local file
+        # links. Run the same pinned checker and shared config outside the
+        # sandbox so remote links are checked too.
+        env:
+          # Lets lychee use the GitHub API for github.com links instead of
+          # being rate limited.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: git ls-files -z '*.md' '*.mdx' | xargs -0 -r nix run --inputs-from . precommit-base#link-check --
